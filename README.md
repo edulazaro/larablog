@@ -224,6 +224,15 @@ The suite runs on Testbench against fixtures in `tests/fixtures/blog`: a transla
 with no translation, a scheduled one, a draft, a post with no title and a duplicated slug.
 GitHub Actions runs it on PHP 8.2 to 8.4 with Laravel 12 and 13 on every push.
 
+## Sponsors
+
+Larablog is supported by the following sponsors. Thank you for keeping it growing:
+
+<p>
+  <a href="https://kenodo.com"><img src="art/logo-kenodo.png" width="24" alt="Kenodo"></a>&nbsp;<a href="https://kenodo.com">Kenodo</a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://andorradev.com"><img src="art/logo-andorradev.png" width="24" alt="AndorraDev"></a>&nbsp;<a href="https://andorradev.com">AndorraDev</a>
+</p>
+
 ## Author
 
 Created by [Edu Lazaro](https://edulazaro.com)
