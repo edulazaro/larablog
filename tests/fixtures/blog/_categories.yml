@@ -1,0 +1,9 @@
+engineering:
+  name:
+    en: Engineering
+    es: Ingeniería
+  color: "#009e4d"
+product:
+  name:
+    en: Product
+    es: Producto

@@ -1,0 +1,67 @@
+{
+    "name": "edulazaro/larablog",
+    "description": "Markdown blogs for Laravel in several languages, each with its own URL: one folder per post, one file per language, hreflang, feeds, sitemap and social cards included",
+    "keywords": [
+        "laravel",
+        "blog",
+        "markdown",
+        "multilingual",
+        "i18n",
+        "hreflang",
+        "rss",
+        "seo"
+    ],
+    "license": "MIT",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": ">=11.0",
+        "league/commonmark": "^2.4",
+        "symfony/yaml": "^7.0|^8.0",
+        "edulazaro/laracards": "^1.2"
+    },
+    "suggest": {
+        "edulazaro/laralang": "Localized routes: each language's blog under its own prefix and words"
+    },
+    "autoload": {
+        "psr-4": {
+            "EduLazaro\\Larablog\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "EduLazaro\\Larablog\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Edu Lazaro",
+            "email": "edu@edulazaro.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "EduLazaro\\Larablog\\LarablogServiceProvider"
+            ]
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0|^12.0",
+        "orchestra/testbench": "^9.0|^10.0|^11.0"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../laracards",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "edulazaro/laracards": "1.2.0"
+                }
+            }
+        }
+    ],
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
