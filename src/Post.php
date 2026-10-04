@@ -86,7 +86,7 @@ final class Post
      */
     public function html(): string
     {
-        return $this->render()['html'];
+        return $this->blog()->resolveLinks($this->render()['html'], $this->locale);
     }
 
     /**

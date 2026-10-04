@@ -15,6 +15,7 @@ final class Category
      * @param string $slug
      * @param string|null $description
      * @param string|null $color
+     * @param array<string, mixed> $meta Any other field of its entry in `_categories.yml`.
      */
     public function __construct(
         public readonly string $collection,
@@ -24,7 +25,23 @@ final class Category
         public readonly string $slug,
         public readonly ?string $description = null,
         public readonly ?string $color = null,
+        public readonly array $meta = [],
     ) {
+    }
+
+    /**
+     * A field of the category's entry that has no property of its own, in this language
+     * when it is written per language.
+     *
+     * @param string $key
+     * @param mixed $default
+     * @return mixed
+     */
+    public function meta(string $key, mixed $default = null): mixed
+    {
+        $value = data_get($this->meta, $key, $default);
+
+        return is_array($value) && array_key_exists($this->locale, $value) ? $value[$this->locale] : $value;
     }
 
     /**

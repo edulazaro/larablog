@@ -1,4 +1,13 @@
+![Larablog](art/banner.png)
+
 # Larablog
+
+<p align="center">
+    <a href="https://github.com/edulazaro/larablog/actions/workflows/tests.yml"><img src="https://github.com/edulazaro/larablog/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+    <a href="https://packagist.org/packages/edulazaro/larablog"><img src="https://img.shields.io/packagist/v/edulazaro/larablog" alt="Latest Stable Version"></a>
+    <a href="https://packagist.org/packages/edulazaro/larablog"><img src="https://img.shields.io/packagist/php-v/edulazaro/larablog" alt="PHP Version"></a>
+    <a href="https://github.com/edulazaro/larablog/blob/main/LICENSE"><img src="https://img.shields.io/packagist/l/edulazaro/larablog" alt="License"></a>
+</p>
 
 Markdown blogs for Laravel in several languages, where **every language has its own URL**.
 
@@ -13,9 +22,15 @@ switcher, the sitemap and a link shared in the wrong language all just work.
 - Categories and authors in two YAML files, named per language
 - Drafts and scheduled posts, an RSS feed per language, sitemap entries with alternates
 - Anchors on every heading for an "On this page" index, safe external links
+- Links between posts by folder (`post:chat-moderation`), resolved in the reader's language
 - A social card per post and language, drawn by [Laracards](https://github.com/edulazaro/laracards)
 - `php artisan larablog:check` before a visitor finds the broken post
 - Your views: Larablog finds and paginates the posts, your site draws them
+
+## Requirements
+
+PHP 8.2+ and Laravel 12 or 13 (tested on both). [Laralang](https://github.com/edulazaro/laralang)
+is optional: with it the blog shares the site's language prefixes.
 
 ## Install
 
@@ -80,6 +95,31 @@ edu:
 ```
 
 A category slug is its name, slugified, per language (`ingenieria`), unless you give `slug`.
+
+Any other field of a category stays available as `$category->meta('field')`, in the page's
+language when it is written per language. `accent` is also what the social card is tinted
+with, when the `color` your views use is a class name rather than a colour:
+
+```yaml
+engineering:
+  name: { en: Engineering, es: Ingeniería }
+  color: teal              # your CSS: class="cat-{{ $category->color }}"
+  accent: "#2dd4bf"        # the card
+```
+
+## Linking posts
+
+Link another post by its **folder**, not by its slug:
+
+```markdown
+Read [how glossaries are applied](post:glossaries) first, or [the part on
+placeholders](post:glossaries#placeholders).
+```
+
+On an English page that becomes `/blog/glossaries-that-are-obeyed`, on a Spanish one
+`/es/blog/glosarios-que-se-cumplen`, and if the post is not translated it points at the
+language it does exist in. Renaming a slug never breaks the links to it. A link to a post
+that is not published points at `#` and fails `larablog:check`. `#anchor` and `?query` are kept.
 
 ## Routes
 
@@ -170,7 +210,7 @@ php artisan larablog:check
 ```
 
 Errors (a post without a title, a slug used twice in one language, broken YAML) are posts
-that are not published at all. Warnings are posts missing a language. It exits 1 on errors,
+that are not published at all, and a `post:` link leading to no published post. Warnings are posts missing a language. It exits 1 on errors,
 for CI.
 
 ## Testing
@@ -180,6 +220,14 @@ composer install
 vendor/bin/phpunit
 ```
 
+The suite runs on Testbench against fixtures in `tests/fixtures/blog`: a translated post, one
+with no translation, a scheduled one, a draft, a post with no title and a duplicated slug.
+GitHub Actions runs it on PHP 8.2 to 8.4 with Laravel 12 and 13 on every push.
+
+## Author
+
+Created by [Edu Lazaro](https://edulazaro.com)
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Larablog is open-sourced software licensed under the [MIT license](LICENSE).

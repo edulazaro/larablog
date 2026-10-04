@@ -8,4 +8,4 @@ tags: [videojuegos, moderación]
 author: edu
 ---
 
-Párrafo.
+Párrafo con [el post de glosarios](post:glossaries#detail), que solo existe en inglés.

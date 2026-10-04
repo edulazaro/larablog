@@ -5,4 +5,4 @@ category: product
 tags: [moderation]
 ---
 
-Only in English.
+Only in English. See [chat moderation](post:chat-moderation?ref=glossaries) and [a post that is gone](post:nowhere).

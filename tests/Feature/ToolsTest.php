@@ -16,6 +16,7 @@ class ToolsTest extends TestCase
         $this->artisan('larablog:check')
             ->expectsOutputToContain('broken/en.md: It has no title.')
             ->expectsOutputToContain('glossaries: no es version.')
+            ->expectsOutputToContain('glossaries/en: links to post:nowhere, which is not published.')
             ->assertExitCode(1);
     }
 
@@ -32,6 +33,7 @@ class ToolsTest extends TestCase
         $spanish = collect($cards)->first(fn (Card $card) => str_ends_with($card->outputPath(), 'moderacion-chat-videojuegos.png'));
         $this->assertSame('INGENIERÍA', $spanish->payload()['category_label']);
         $this->assertSame('1 de septiembre de 2026', $spanish->payload()['date_formatted']);
+        $this->assertSame('#00c060', $spanish->payload()['accent'], 'The category\'s accent wins over its colour on a card.');
     }
 
     public function test_the_cards_are_registered_with_laracards(): void

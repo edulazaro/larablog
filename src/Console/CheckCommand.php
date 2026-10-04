@@ -45,6 +45,11 @@ class CheckCommand extends Command
 
             foreach ($blog->all() as $post) {
                 $byId[$post->id][] = $post->locale;
+
+                foreach ($post->isPublished() ? $blog->brokenLinks($post) : [] as $id) {
+                    $this->line("  <error>✗</error> {$post->id}/{$post->locale}: links to post:{$id}, which is not published.");
+                    $failed = true;
+                }
             }
 
             foreach ($byId as $id => $locales) {

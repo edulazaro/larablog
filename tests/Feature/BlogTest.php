@@ -127,4 +127,36 @@ class BlogTest extends TestCase
             file_put_contents($file, $original);
         }
     }
+
+    /**
+     * A link written by folder follows the reader's language, and falls back to the
+     * language the post exists in rather than to a 404.
+     */
+    public function test_a_post_link_by_folder_resolves_in_the_readers_language(): void
+    {
+        $blog = Larablog::collection('blog');
+
+        $this->assertStringContainsString(
+            '<a href="http://localhost/blog/chat-moderation-games?ref=glossaries">',
+            $blog->find('glossaries-that-are-obeyed', 'en')->html(),
+        );
+        $this->assertStringContainsString('<a href="#">a post that is gone</a>', $blog->find('glossaries-that-are-obeyed', 'en')->html());
+        $this->assertStringContainsString(
+            '<a href="http://localhost/blog/glossaries-that-are-obeyed#detail">',
+            $blog->find('moderacion-chat-videojuegos', 'es')->html(),
+            'Not translated: the English one, not nothing.',
+        );
+        $this->assertSame('http://localhost/es/blog/moderacion-chat-videojuegos', $blog->linkTo('chat-moderation', 'es'));
+        $this->assertSame(['nowhere'], $blog->brokenLinks($blog->find('glossaries-that-are-obeyed', 'en')));
+    }
+
+    public function test_a_category_keeps_the_fields_it_has_no_property_for(): void
+    {
+        $blog = Larablog::collection('blog');
+
+        $this->assertSame('#00c060', $blog->category('engineering', 'en')->meta('accent'));
+        $this->assertSame('verde', $blog->category('engineering', 'es')->meta('tone'));
+        $this->assertSame('green', $blog->category('engineering', 'en')->meta('tone'));
+        $this->assertNull($blog->category('product', 'en')->meta('accent'));
+    }
 }

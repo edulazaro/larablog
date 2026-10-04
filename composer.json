@@ -18,7 +18,7 @@
         "laravel/framework": ">=11.0",
         "league/commonmark": "^2.4",
         "symfony/yaml": "^7.0|^8.0",
-        "edulazaro/laracards": "^1.2"
+        "edulazaro/laracards": "^1.1"
     },
     "suggest": {
         "edulazaro/laralang": "Localized routes: each language's blog under its own prefix and words"
@@ -50,18 +50,10 @@
         "phpunit/phpunit": "^11.0|^12.0",
         "orchestra/testbench": "^9.0|^10.0|^11.0"
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../laracards",
-            "options": {
-                "symlink": true,
-                "versions": {
-                    "edulazaro/laracards": "1.2.0"
-                }
-            }
-        }
-    ],
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "support": {
+        "issues": "https://github.com/edulazaro/larablog/issues",
+        "source": "https://github.com/edulazaro/larablog"
+    }
 }

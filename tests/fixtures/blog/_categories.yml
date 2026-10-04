@@ -3,6 +3,10 @@ engineering:
     en: Engineering
     es: Ingeniería
   color: "#009e4d"
+  accent: "#00c060"
+  tone:
+    en: green
+    es: verde
 product:
   name:
     en: Product

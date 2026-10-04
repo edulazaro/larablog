@@ -157,6 +157,73 @@ final class Blog
     }
 
     /**
+     * The URL a `post:{id}` link should take from a page in this language: the post in this
+     * language, or, when it is not translated, in the first language it is published in.
+     *
+     * A link written by folder rather than by slug follows the reader's language and
+     * survives a slug being changed, which a hand-written `/es/blog/...` does not.
+     *
+     * @param string $id The post's folder name.
+     * @param string $locale
+     * @return string|null Null when no published post has that folder.
+     */
+    public function linkTo(string $id, string $locale): ?string
+    {
+        $published = array_filter($this->all(), fn (Post $post) => $post->id === $id && $post->isPublished());
+
+        foreach ([$locale, ...$this->locales()] as $wanted) {
+            foreach ($published as $post) {
+                if ($post->locale === $wanted) {
+                    return $post->url();
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Rewrites every `href="post:{id}"` (optionally with `#anchor` or `?query`) to the URL of
+     * that post in the given language. A link to a post that does not exist, or is not
+     * published, points at `#` rather than at a scheme no browser knows; `larablog:check`
+     * reports it.
+     *
+     * Done on the rendered HTML, after the cache, because the target can change without this
+     * file changing: a translation added, a slug renamed.
+     *
+     * @param string $html
+     * @param string $locale
+     * @return string
+     */
+    public function resolveLinks(string $html, string $locale): string
+    {
+        if (! str_contains($html, 'href="post:')) {
+            return $html;
+        }
+
+        return (string) preg_replace_callback('/href="post:([A-Za-z0-9_.-]+)([#?][^"]*)?"/', function (array $m) use ($locale) {
+            $url = $this->linkTo($m[1], $locale);
+
+            return 'href="' . ($url === null ? '#' : e($url) . ($m[2] ?? '')) . '"';
+        }, $html);
+    }
+
+    /**
+     * Every `post:{id}` link in a post's body that leads nowhere published.
+     *
+     * @param Post $post
+     * @return array<int, string> The ids.
+     */
+    public function brokenLinks(Post $post): array
+    {
+        preg_match_all('/\]\(post:([A-Za-z0-9_.-]+)|href="post:([A-Za-z0-9_.-]+)/', (string) @file_get_contents($post->file), $m);
+
+        $ids = array_unique(array_filter([...$m[1], ...$m[2]]));
+
+        return array_values(array_filter($ids, fn (string $id) => $this->linkTo($id, $post->locale) === null));
+    }
+
+    /**
      * @param string $key
      * @param string|null $locale
      * @return Category|null
@@ -186,6 +253,7 @@ final class Blog
             slug: $slug ?: Str::slug($key),
             description: is_array($definition) ? self::localized($definition['description'] ?? null, $locale) : null,
             color: is_array($definition) ? ($definition['color'] ?? null) : null,
+            meta: is_array($definition) ? array_diff_key($definition, array_flip(['name', 'slug', 'description', 'color'])) : [],
         );
     }
 

@@ -54,7 +54,7 @@ class PostCards implements CardSource
                 'title' => $post->title,
                 'description' => (string) $post->description,
                 'category_label' => $category ? mb_strtoupper($category->name) : '',
-                'accent' => $category?->color ?? '',
+                'accent' => (string) ($category?->meta('accent') ?? $category?->color ?? ''),
                 'author_name' => $post->author()?->name ?? '',
                 'date_formatted' => $post->date->locale($post->locale)->isoFormat('LL'),
                 'reading_time' => (string) $post->readingTime,
