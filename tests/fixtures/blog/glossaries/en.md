@@ -5,4 +5,4 @@ category: product
 tags: [moderation]
 ---
 
-Only in English. See [chat moderation](post:chat-moderation?ref=glossaries) and [a post that is gone](post:nowhere).
+Only in English. See [chat moderation](post:chat-moderation?ref=glossaries) and [a post that is gone](post:nowhere). Next year, [the future one](post:future).

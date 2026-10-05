@@ -183,13 +183,17 @@ final class Blog
     }
 
     /**
-     * Rewrites every `href="post:{id}"` (optionally with `#anchor` or `?query`) to the URL of
-     * that post in the given language. A link to a post that does not exist, or is not
-     * published, points at `#` rather than at a scheme no browser knows; `larablog:check`
+     * Rewrites every link to `post:{id}` (optionally with `#anchor` or `?query`) to the URL of
+     * that post in the given language.
+     *
+     * A post that exists but is not out yet (dated ahead, or a draft) is linked as its words
+     * alone, with no anchor: the link appears by itself the day the post goes live, so a
+     * published post can point at one scheduled for next month without a dead link in the
+     * meantime. A post that does not exist at all points at `#`, and `larablog:check`
      * reports it.
      *
      * Done on the rendered HTML, after the cache, because the target can change without this
-     * file changing: a translation added, a slug renamed.
+     * file changing: a translation added, a slug renamed, a date reached.
      *
      * @param string $html
      * @param string $locale
@@ -201,26 +205,98 @@ final class Blog
             return $html;
         }
 
-        return (string) preg_replace_callback('/href="post:([A-Za-z0-9_.-]+)([#?][^"]*)?"/', function (array $m) use ($locale) {
-            $url = $this->linkTo($m[1], $locale);
+        return (string) preg_replace_callback(
+            '/<a\b([^>]*?)\shref="post:([A-Za-z0-9_.-]+)([#?][^"]*)?"([^>]*)>(.*?)<\/a>/s',
+            function (array $m) use ($locale) {
+                $url = $this->linkTo($m[2], $locale);
 
-            return 'href="' . ($url === null ? '#' : e($url) . ($m[2] ?? '')) . '"';
-        }, $html);
+                if ($url !== null) {
+                    return '<a' . $m[1] . ' href="' . e($url) . ($m[3] ?? '') . '"' . $m[4] . '>' . $m[5] . '</a>';
+                }
+
+                return $this->exists($m[2]) ? $m[5] : '<a' . $m[1] . ' href="#"' . $m[4] . '>' . $m[5] . '</a>';
+            },
+            $html,
+        );
     }
 
     /**
-     * Every `post:{id}` link in a post's body that leads nowhere published.
+     * Every `post:{id}` link in a post's body that leads to no post at all.
+     *
+     * A post that exists and is not published yet is not broken: its link is plain text
+     * until it is (see `pendingLinks()`).
      *
      * @param Post $post
      * @return array<int, string> The ids.
      */
     public function brokenLinks(Post $post): array
     {
+        return array_values(array_filter(
+            $this->linkedIds($post),
+            fn (string $id) => $this->linkTo($id, $post->locale) === null && ! $this->exists($id),
+        ));
+    }
+
+    /**
+     * Every `post:{id}` link in a post's body to a post that exists and is not out yet,
+     * with the day it goes live (null for a draft, which has none).
+     *
+     * @param Post $post
+     * @return array<string, \Carbon\CarbonInterface|null> Id => publication day.
+     */
+    public function pendingLinks(Post $post): array
+    {
+        $pending = [];
+
+        foreach ($this->linkedIds($post) as $id) {
+            if ($this->linkTo($id, $post->locale) !== null || ! $this->exists($id)) {
+                continue;
+            }
+
+            $dates = [];
+
+            foreach ($this->all() as $candidate) {
+                if ($candidate->id === $id && ! $candidate->draft) {
+                    $dates[] = $candidate->date;
+                }
+            }
+
+            usort($dates, static fn ($a, $b) => $a <=> $b);
+
+            $pending[$id] = $dates[0] ?? null;
+        }
+
+        return $pending;
+    }
+
+    /**
+     * Whether any file of this collection has that folder, published or not.
+     *
+     * @param string $id
+     * @return bool
+     */
+    private function exists(string $id): bool
+    {
+        foreach ($this->all() as $post) {
+            if ($post->id === $id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The folders a post's body links to, once each.
+     *
+     * @param Post $post
+     * @return array<int, string>
+     */
+    private function linkedIds(Post $post): array
+    {
         preg_match_all('/\]\(post:([A-Za-z0-9_.-]+)|href="post:([A-Za-z0-9_.-]+)/', (string) @file_get_contents($post->file), $m);
 
-        $ids = array_unique(array_filter([...$m[1], ...$m[2]]));
-
-        return array_values(array_filter($ids, fn (string $id) => $this->linkTo($id, $post->locale) === null));
+        return array_values(array_unique(array_filter([...$m[1], ...$m[2]])));
     }
 
     /**

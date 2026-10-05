@@ -16,8 +16,18 @@ class ToolsTest extends TestCase
         $this->artisan('larablog:check')
             ->expectsOutputToContain('broken/en.md: It has no title.')
             ->expectsOutputToContain('glossaries: no es version.')
-            ->expectsOutputToContain('glossaries/en: links to post:nowhere, which is not published.')
+            ->expectsOutputToContain('glossaries/en: links to post:nowhere, which does not exist.')
+            ->doesntExpectOutputToContain('post:future, which')
             ->assertExitCode(1);
+    }
+
+    /**
+     * A link to a scheduled post is not an error, and `--pending` says when it becomes one.
+     */
+    public function test_check_lists_links_waiting_for_their_post(): void
+    {
+        $this->artisan('larablog:check', ['--pending' => true])
+            ->expectsOutputToContain('glossaries/en: post:future becomes a link on 2099-01-01.');
     }
 
     public function test_one_card_per_post_and_language_named_after_its_slug(): void

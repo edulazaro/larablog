@@ -150,6 +150,24 @@ class BlogTest extends TestCase
         $this->assertSame(['nowhere'], $blog->brokenLinks($blog->find('glossaries-that-are-obeyed', 'en')));
     }
 
+    /**
+     * A link to a post that exists and is not out yet is its words alone until the day it is,
+     * so a published post can point at a scheduled one with no dead link in between.
+     */
+    public function test_a_link_to_a_scheduled_post_is_plain_text_until_it_is_out(): void
+    {
+        $blog = Larablog::collection('blog');
+        $post = $blog->find('glossaries-that-are-obeyed', 'en');
+
+        $this->assertStringContainsString('Next year, the future one.', $post->html());
+        $this->assertNotContains('future', $blog->brokenLinks($post));
+        $this->assertSame('2099-01-01', $blog->pendingLinks($post)['future']->toDateString());
+
+        $this->travelTo('2099-01-02');
+
+        $this->assertStringContainsString('the future one</a>', Larablog::collection('blog')->find('glossaries-that-are-obeyed', 'en')->html());
+    }
+
     public function test_a_category_keeps_the_fields_it_has_no_property_for(): void
     {
         $blog = Larablog::collection('blog');

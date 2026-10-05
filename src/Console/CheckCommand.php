@@ -15,7 +15,7 @@ use Illuminate\Console\Command;
 class CheckCommand extends Command
 {
     /** @var string */
-    protected $signature = 'larablog:check {collection? : Only this collection}';
+    protected $signature = 'larablog:check {collection? : Only this collection} {--pending : Also list links to posts that are not out yet}';
 
     /** @var string */
     protected $description = 'Check the blog posts: titles, slugs per language, categories, authors, missing translations';
@@ -46,9 +46,19 @@ class CheckCommand extends Command
             foreach ($blog->all() as $post) {
                 $byId[$post->id][] = $post->locale;
 
-                foreach ($post->isPublished() ? $blog->brokenLinks($post) : [] as $id) {
-                    $this->line("  <error>✗</error> {$post->id}/{$post->locale}: links to post:{$id}, which is not published.");
+                // Scheduled posts too: a link written today to a folder that does not exist
+                // would otherwise only be found the day the post goes live.
+                foreach ($blog->brokenLinks($post) as $id) {
+                    $this->line("  <error>✗</error> {$post->id}/{$post->locale}: links to post:{$id}, which does not exist.");
                     $failed = true;
+                }
+
+                // Not an error: the link is plain text until its post is out.
+                if ($this->option('pending')) {
+                    foreach ($blog->pendingLinks($post) as $id => $date) {
+                        $when = $date ? 'on ' . $date->toDateString() : 'when it stops being a draft';
+                        $this->line("  <comment>·</comment> {$post->id}/{$post->locale}: post:{$id} becomes a link {$when}.");
+                    }
                 }
             }
 

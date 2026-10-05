@@ -118,8 +118,13 @@ placeholders](post:glossaries#placeholders).
 
 On an English page that becomes `/blog/glossaries-that-are-obeyed`, on a Spanish one
 `/es/blog/glosarios-que-se-cumplen`, and if the post is not translated it points at the
-language it does exist in. Renaming a slug never breaks the links to it. A link to a post
-that is not published points at `#` and fails `larablog:check`. `#anchor` and `?query` are kept.
+language it does exist in. Renaming a slug never breaks the links to it. `#anchor` and `?query`
+are kept.
+
+A link to a post that exists but is not out yet (dated ahead, or a draft) is printed as its
+words, with no link, and becomes a link by itself the day that post goes live: a published post
+can point at one scheduled for next month with no dead link in between. A link to a folder that
+does not exist points at `#` and fails `larablog:check`.
 
 ## Routes
 
@@ -207,11 +212,13 @@ frontmatter's `image`, or the card when it exists.
 
 ```bash
 php artisan larablog:check
+php artisan larablog:check --pending   # also list links waiting for their post, with the day
 ```
 
 Errors (a post without a title, a slug used twice in one language, broken YAML) are posts
-that are not published at all, and a `post:` link leading to no published post. Warnings are posts missing a language. It exits 1 on errors,
-for CI.
+that are not published at all, and a `post:` link to a folder that does not exist, in any post,
+scheduled ones included. A link to a post not out yet is not an error. Warnings are posts
+missing a language. It exits 1 on errors, for CI.
 
 ## Testing
 
