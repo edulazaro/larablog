@@ -3,6 +3,7 @@
 namespace EduLazaro\Larablog;
 
 use Carbon\CarbonImmutable;
+use EduLazaro\Larablog\Conditionals\PublishedContent;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 
@@ -19,6 +20,9 @@ final class Blog
 
     /** @var array<int, Post> */
     private array $postCache = [];
+
+    /** @var array<string, array<string, int>>|null */
+    private ?array $postPositions = null;
 
     /**
      * @param string $name
@@ -157,13 +161,10 @@ final class Blog
      */
     public function linkTo(string $id, string $locale): ?string
     {
-        $published = array_filter($this->all(), fn (Post $post) => $post->id === $id && $post->isPublished());
-
+        $positions = $this->positionsFor($id);
         foreach ([$locale, ...$this->locales()] as $wanted) {
-            foreach ($published as $post) {
-                if ($post->locale === $wanted) {
-                    return $post->url();
-                }
+            if (isset($positions[$wanted]) && ($post = $this->publishedPostAt($positions[$wanted]))) {
+                return $post->url();
             }
         }
 
@@ -189,6 +190,8 @@ final class Blog
      */
     public function resolveLinks(string $html, string $locale): string
     {
+        $html = PublishedContent::resolve($html, fn (string $id) => $this->linkTo($id, $locale) !== null);
+
         if (! str_contains($html, 'href="post:')) {
             return $html;
         }
@@ -265,13 +268,7 @@ final class Blog
      */
     private function exists(string $id): bool
     {
-        foreach ($this->all() as $post) {
-            if ($post->id === $id) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->positionsFor($id) !== [];
     }
 
     /**
@@ -284,7 +281,7 @@ final class Blog
     {
         preg_match_all('/\]\(post:([A-Za-z0-9_.-]+)|href="post:([A-Za-z0-9_.-]+)/', (string) @file_get_contents($post->file), $m);
 
-        return array_values(array_unique(array_filter([...$m[1], ...$m[2]])));
+        return array_values(array_unique(array_filter([...$m[1], ...$m[2], ...array_column($post->conditions(), 'post')])));
     }
 
     /**
@@ -588,8 +585,22 @@ final class Blog
         ))->load(true);
         $this->posts = null;
         $this->postCache = [];
+        $this->postPositions = null;
 
         return count($this->index['posts']);
+    }
+
+    /** @return array<string, int> */
+    private function positionsFor(string $id): array
+    {
+        if ($this->postPositions === null) {
+            $this->postPositions = [];
+            foreach ($this->index()['posts'] as $position => $post) {
+                $this->postPositions[$post['id']][$post['locale']] = $position;
+            }
+        }
+
+        return $this->postPositions[$id] ?? [];
     }
 
     /**

@@ -126,6 +126,57 @@ words, with no link, and becomes a link by itself the day that post goes live: a
 can point at one scheduled for next month with no dead link in between. A link to a folder that
 does not exist points at `#` and fails `larablog:check`.
 
+## Content that appears when another post is published
+
+Wrap any Markdown fragment in `if-published` and name the other post by its **folder ID**:
+
+```markdown
+::: if-published post="chat-moderation"
+Read [our complete guide to chat moderation](/blog/chat-moderation-games).
+:::
+```
+
+The opening and closing markers must be on their own lines. Everything inside is ordinary
+Markdown: a paragraph, heading, image, table, list or several elements together. The whole
+fragment is omitted until that post is published. The links and their visible text remain
+exactly as you wrote them; this condition does not rewrite ordinary URLs.
+
+A list item can have its own condition. Keep its content and closing marker indented under
+the list marker:
+
+```markdown
+- ::: if-published post="chat-moderation"
+  Moderation guide: [How to moderate a game chat](/blog/chat-moderation-games).
+  :::
+
+- ::: if-published post="future"
+  Next guide: [The future article](/blog/from-the-future).
+  :::
+
+- ::: if-published post="draft"
+  Another guide: [The draft article](/blog/half-written).
+  :::
+```
+
+If only the first post is published, only the first complete `<li>` appears, including its
+label and link. Hidden items leave no empty bullets. Lists with no remaining items are
+removed as well. A condition inside an item that also has other content hides just that
+fragment and keeps the rest of the item.
+
+Conditions are evaluated **after the HTML cache**, on every visit. A scheduled post reveals
+its dependent fragments when its publication time arrives, without editing the source post,
+running a command or rebuilding the cached HTML. Hidden headings are excluded from
+`$post->headings()` and their anchors remain stable when they become visible.
+
+The target belongs to the same Larablog collection. Availability follows the same language
+fallback as `post:` links: the requested translation first, then an available translation.
+Preview options `show_drafts` and `show_scheduled` also apply. Conditions may be nested; all
+outer conditions must be satisfied. Examples inside fenced code remain literal.
+
+Create the target files before scheduling the series. `larablog:check` reports missing
+folder IDs and missing closing markers; `--pending` lists dependencies waiting for
+publication. A missing target or unclosed conditional stays hidden.
+
 ## Routes
 
 ```php

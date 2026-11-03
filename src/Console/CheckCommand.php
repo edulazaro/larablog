@@ -47,6 +47,13 @@ class CheckCommand extends Command
             foreach ($blog->all() as $post) {
                 $byId[$post->id][] = $post->locale;
 
+                foreach ($post->conditions() as $condition) {
+                    if (! $condition['closed']) {
+                        $this->line("  <error>✗</error> {$post->id}/{$post->locale}: if-published post:{$condition['post']} is missing its closing :::.");
+                        $failed = true;
+                    }
+                }
+
                 // Scheduled posts too: a link written today to a folder that does not exist
                 // would otherwise only be found the day the post goes live.
                 foreach ($blog->brokenLinks($post) as $id) {

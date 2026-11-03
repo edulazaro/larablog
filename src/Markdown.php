@@ -2,10 +2,14 @@
 
 namespace EduLazaro\Larablog;
 
+use EduLazaro\Larablog\Conditionals\ConditionalBlock;
+use EduLazaro\Larablog\Conditionals\ConditionalRenderer;
+use EduLazaro\Larablog\Conditionals\ConditionalStartParser;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\CommonMark\Node\Block\ListItem;
 use League\CommonMark\Extension\ExternalLink\ExternalLinkExtension;
 use League\CommonMark\Extension\GithubFlavoredMarkdownExtension;
 use League\CommonMark\MarkdownConverter;
@@ -58,7 +62,7 @@ final class Markdown
     public function render(string $file): array
     {
         clearstatcache(true, $file);
-        $key = 'larablog:html:v2:' . sha1($file . '|' . (string) @filemtime($file) . '|' . (string) @filesize($file));
+        $key = 'larablog:html:v3:' . sha1($file . '|' . (string) @filemtime($file) . '|' . (string) @filesize($file));
 
         $render = fn () => $this->convert(self::split((string) file_get_contents($file))[1]);
 
@@ -141,6 +145,10 @@ final class Markdown
         $environment = new Environment($config);
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new GithubFlavoredMarkdownExtension());
+        $conditionalRenderer = new ConditionalRenderer();
+        $environment->addBlockStartParser(new ConditionalStartParser(), 100);
+        $environment->addRenderer(ConditionalBlock::class, $conditionalRenderer, 100);
+        $environment->addRenderer(ListItem::class, $conditionalRenderer, 100);
 
         if ($options['external_links'] ?? true) {
             $environment->addExtension(new ExternalLinkExtension());

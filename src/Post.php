@@ -3,6 +3,7 @@
 namespace EduLazaro\Larablog;
 
 use Carbon\CarbonImmutable;
+use EduLazaro\Larablog\Conditionals\PublishedContent;
 
 /**
  * One post in one language.
@@ -96,7 +97,21 @@ final class Post
      */
     public function headings(): array
     {
-        return $this->render()['headings'];
+        $rendered = $this->render();
+        if (! str_contains($rendered['html'], '<!--larablog:if-published:')) {
+            return $rendered['headings'];
+        }
+
+        preg_match_all('/<h[23]\b[^>]*\bid="([^"]+)"/i', $this->html(), $matches);
+        $visible = array_fill_keys($matches[1], true);
+
+        return array_values(array_filter($rendered['headings'], fn (array $heading) => isset($visible[$heading['id']])));
+    }
+
+    /** @return array<int, array{post: string, closed: bool}> */
+    public function conditions(): array
+    {
+        return PublishedContent::references($this->render()['html']);
     }
 
     /**
