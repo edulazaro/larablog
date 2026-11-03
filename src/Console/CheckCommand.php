@@ -34,6 +34,7 @@ class CheckCommand extends Command
         $failed = false;
 
         foreach ($collections as $name => $blog) {
+            $blog->rebuildIndex();
             $this->line("<info>{$name}</info>");
 
             foreach ($blog->errors() as $error) {

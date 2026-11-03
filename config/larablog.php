@@ -77,6 +77,9 @@ return [
     'cache' => [
         'enabled' => env('LARABLOG_CACHE', true),
         'store' => null,
+        // Seconds between filesystem checks. Null uses 60 in production and 0 elsewhere.
+        // A missing index is always built automatically. Set 0 for immediate checks.
+        'check_interval' => env('LARABLOG_CACHE_CHECK_INTERVAL'),
     ],
 
     // CommonMark. The content is written by the site's owner, so HTML in Markdown is

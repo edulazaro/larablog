@@ -57,7 +57,8 @@ final class Markdown
      */
     public function render(string $file): array
     {
-        $key = 'larablog:html:' . sha1($file . '|' . (string) @filemtime($file));
+        clearstatcache(true, $file);
+        $key = 'larablog:html:v2:' . sha1($file . '|' . (string) @filemtime($file) . '|' . (string) @filesize($file));
 
         $render = fn () => $this->convert(self::split((string) file_get_contents($file))[1]);
 

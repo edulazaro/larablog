@@ -11,11 +11,14 @@ use Illuminate\Support\Str;
  */
 final class Blog
 {
-    /** @var array{posts: array<int, array<string, mixed>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}|null */
+    /** @var array{posts: array<int, array<string, mixed>>, lookup: array<string, array<string, int>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}|null */
     private ?array $index = null;
 
     /** @var array<int, Post>|null */
     private ?array $posts = null;
+
+    /** @var array<int, Post> */
+    private array $postCache = [];
 
     /**
      * @param string $name
@@ -74,26 +77,7 @@ final class Blog
      */
     public function all(): array
     {
-        return $this->posts ??= array_map(fn (array $row) => new Post(
-            collection: $this->name,
-            id: $row['id'],
-            locale: $row['locale'],
-            slug: $row['slug'],
-            title: $row['title'],
-            description: $row['description'],
-            date: CarbonImmutable::parse($row['date']),
-            updated: $row['updated'] ? CarbonImmutable::parse($row['updated']) : null,
-            category: $row['category'],
-            tags: $row['tags'],
-            author: $row['author'],
-            image: $row['image'],
-            imageAlt: $row['image_alt'],
-            featured: $row['featured'],
-            draft: $row['draft'],
-            readingTime: $row['reading_time'],
-            meta: $row['meta'],
-            file: $row['file'],
-        ), $this->index()['posts']);
+        return $this->posts ??= array_map(fn (int $position) => $this->postAt($position), array_keys($this->index()['posts']));
     }
 
     /**
@@ -105,13 +89,9 @@ final class Blog
     {
         $locale ??= app()->getLocale();
 
-        foreach ($this->posts($locale) as $post) {
-            if ($post->slug === $slug) {
-                return $post;
-            }
-        }
+        $position = $this->index()['lookup'][$locale][$slug] ?? null;
 
-        return null;
+        return $position === null ? null : $this->publishedPostAt($position);
     }
 
     /**
@@ -123,8 +103,16 @@ final class Blog
      */
     public function findInAnyLocale(string $slug): ?Post
     {
-        foreach ($this->all() as $post) {
-            if ($post->slug === $slug && $post->isPublished()) {
+        $positions = [];
+        foreach ($this->index()['lookup'] as $slugs) {
+            if (isset($slugs[$slug])) {
+                $positions[] = $slugs[$slug];
+            }
+        }
+        sort($positions, SORT_NUMERIC);
+
+        foreach ($positions as $position) {
+            if ($post = $this->publishedPostAt($position)) {
                 return $post;
             }
         }
@@ -586,6 +574,66 @@ final class Blog
     }
 
     /**
+     * Rebuild the shared index now; ordinary requests also build it when it is missing.
+     *
+     * @return int The number of indexed language files, including drafts and scheduled posts.
+     */
+    public function rebuildIndex(): int
+    {
+        $this->index = (new Index(
+            $this->name,
+            rtrim((string) $this->config('path'), '/'),
+            $this->locales(),
+            cache()->store(config('larablog.cache.store')),
+        ))->load(true);
+        $this->posts = null;
+        $this->postCache = [];
+
+        return count($this->index['posts']);
+    }
+
+    /**
+     * @param int $position
+     * @return Post|null
+     */
+    private function publishedPostAt(int $position): ?Post
+    {
+        $post = $this->postAt($position);
+
+        return $post->isPublished() && is_file($post->file) ? $post : null;
+    }
+
+    /**
+     * @param int $position
+     * @return Post
+     */
+    private function postAt(int $position): Post
+    {
+        $row = $this->index()['posts'][$position];
+
+        return $this->postCache[$position] ??= new Post(
+            collection: $this->name,
+            id: $row['id'],
+            locale: $row['locale'],
+            slug: $row['slug'],
+            title: $row['title'],
+            description: $row['description'],
+            date: CarbonImmutable::parse($row['date']),
+            updated: $row['updated'] ? CarbonImmutable::parse($row['updated']) : null,
+            category: $row['category'],
+            tags: $row['tags'],
+            author: $row['author'],
+            image: $row['image'],
+            imageAlt: $row['image_alt'],
+            featured: $row['featured'],
+            draft: $row['draft'],
+            readingTime: $row['reading_time'],
+            meta: $row['meta'],
+            file: $row['file'],
+        );
+    }
+
+    /**
      * A value written once for every language, or per language.
      *
      * @param mixed $value
@@ -602,7 +650,7 @@ final class Blog
     }
 
     /**
-     * @return array{posts: array<int, array<string, mixed>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}
+     * @return array{posts: array<int, array<string, mixed>>, lookup: array<string, array<string, int>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}
      */
     private function index(): array
     {

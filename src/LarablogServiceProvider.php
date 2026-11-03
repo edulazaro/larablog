@@ -3,6 +3,7 @@
 namespace EduLazaro\Larablog;
 
 use EduLazaro\Larablog\Cards\PostCards;
+use EduLazaro\Larablog\Console\CacheCommand;
 use EduLazaro\Larablog\Console\CheckCommand;
 use Illuminate\Support\ServiceProvider;
 
@@ -32,7 +33,7 @@ class LarablogServiceProvider extends ServiceProvider
         config(['laracards.sources' => ['larablog' => PostCards::class] + (array) config('laracards.sources', [])]);
 
         if ($this->app->runningInConsole()) {
-            $this->commands([CheckCommand::class]);
+            $this->commands([CheckCommand::class, CacheCommand::class]);
         }
     }
 }

@@ -208,6 +208,43 @@ Larablog registers itself as a [Laracards](https://github.com/edulazaro/laracard
 post's language), `reading_time`, `brand_label` and `locale`. `$post->imageUrl()` returns the
 frontmatter's `image`, or the card when it exists.
 
+## Index cache
+
+Larablog caches each collection's metadata and a lookup keyed by language and slug. Looking
+up one post does not instantiate every post in the collection. A request automatically
+builds a missing index, so no deployment command is required.
+
+In production, filesystem changes are checked at most once every 60 seconds. Outside
+production they are checked immediately, preserving the edit-and-refresh workflow. Existing
+published configuration files use these defaults too. To choose another interval:
+
+```php
+// config/larablog.php
+'cache' => [
+    'enabled' => true,
+    'store' => null,          // the application's default Laravel cache store
+    'check_interval' => 30,  // seconds; 0 checks on every request
+],
+```
+
+`LARABLOG_CACHE_CHECK_INTERVAL` is also available when using the package's configuration.
+The index is refreshed on the first request after that interval, including additions,
+deletions, renamed slugs, authors and categories. New metadata can take up to the interval
+to appear. Draft visibility and scheduled publication times are evaluated on every lookup,
+so a scheduled post becomes public on time without rebuilding its index.
+
+To prepare an index during deployment, or make edited metadata visible immediately:
+
+```bash
+php artisan larablog:cache        # all collections
+php artisan larablog:cache blog   # one collection
+```
+
+This command is optional. `larablog:check` also refreshes the index before validating files.
+Caches supporting atomic locks coordinate refreshes; visitors can use the previous snapshot
+while another process refreshes it. Custom stores without locks continue to work. With
+`cache.enabled` set to `false`, nothing is persisted and content is read on demand.
+
 ## Checking
 
 ```bash

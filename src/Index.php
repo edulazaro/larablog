@@ -4,6 +4,8 @@ namespace EduLazaro\Larablog;
 
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Illuminate\Contracts\Cache\LockProvider;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
@@ -12,9 +14,10 @@ use Throwable;
 /**
  * Everything a collection holds on disk, read once and cached until a file changes.
  *
- * The cache key is a signature of every file's path and modification time, so publishing
- * is saving a file: no command to run and nothing stale to clear. Problems (a post with no
- * title, a slug used twice in one language, a category nobody defined) are collected rather
+ * A stable cache entry holds the metadata and a locale/slug lookup. File signatures are
+ * checked periodically in production; a missing entry is built by the requesting visitor.
+ * Problems (a post with no title, a slug used twice in one language, a category nobody
+ * defined) are collected rather
  * than thrown, so one bad file never takes the blog down; `larablog:check` reports them.
  */
 final class Index
@@ -40,15 +43,79 @@ final class Index
     }
 
     /**
-     * @return array{posts: array<int, array<string, mixed>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}
+     * @return array{posts: array<int, array<string, mixed>>, lookup: array<string, array<string, int>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}
      */
-    public function load(): array
+    public function load(bool $force = false): array
     {
         if (! config('larablog.cache.enabled')) {
             return $this->build();
         }
 
-        return $this->cache->rememberForever("larablog:index:{$this->name}:" . $this->signature(), fn () => $this->build());
+        $key = 'larablog:index:v2:' . sha1(serialize([$this->name, $this->path, $this->locales, config('larablog.words_per_minute', 220)]));
+        $entry = $this->cache->get($key);
+
+        if (! $force && $this->fresh($entry)) {
+            return $entry['index'];
+        }
+
+        $refresh = function () use ($key, $force): array {
+            $current = $this->cache->get($key);
+            if (! $force && $this->fresh($current)) {
+                return $current['index'];
+            }
+
+            $signature = $this->signature();
+            $index = ! $force && $this->valid($current) && $current['signature'] === $signature
+                ? $current['index']
+                : $this->build();
+
+            $this->cache->forever($key, ['signature' => $signature, 'checked_at' => now()->getTimestamp(), 'index' => $index]);
+
+            return $index;
+        };
+
+        $store = $this->cache->getStore();
+        if (! $store instanceof LockProvider) {
+            return $refresh();
+        }
+
+        $lock = $store->lock($key . ':lock', 60);
+        if (! $force && $this->valid($entry)) {
+            // An existing snapshot can serve visitors while another worker refreshes it.
+            return $lock->get($refresh) ?: $entry['index'];
+        }
+
+        try {
+            return $lock->block(10, $refresh);
+        } catch (LockTimeoutException $exception) {
+            if ($force) {
+                throw $exception;
+            }
+
+            $current = $this->cache->get($key);
+
+            return $this->valid($current) ? $current['index'] : $this->build();
+        }
+    }
+
+    /**
+     * @param mixed $entry
+     * @return bool
+     */
+    private function valid(mixed $entry): bool
+    {
+        return is_array($entry) && isset($entry['signature'], $entry['checked_at'], $entry['index']['lookup']);
+    }
+
+    /**
+     * @param mixed $entry
+     * @return bool
+     */
+    private function fresh(mixed $entry): bool
+    {
+        $interval = max(0, (int) (config('larablog.cache.check_interval') ?? (app()->isProduction() ? 60 : 0)));
+
+        return $this->valid($entry) && now()->getTimestamp() - $entry['checked_at'] < $interval;
     }
 
     /**
@@ -56,14 +123,15 @@ final class Index
      */
     private function signature(): string
     {
+        clearstatcache();
         $parts = [implode(',', $this->locales)];
 
         foreach ($this->files() as $file) {
-            $parts[] = $file . ':' . (string) @filemtime($file);
+            $parts[] = $file . ':' . (string) @filemtime($file) . ':' . (string) @filesize($file);
         }
 
         foreach (['_authors.yml', '_categories.yml'] as $shared) {
-            $parts[] = $shared . ':' . (string) @filemtime($this->path . '/' . $shared);
+            $parts[] = $shared . ':' . (string) @filemtime($this->path . '/' . $shared) . ':' . (string) @filesize($this->path . '/' . $shared);
         }
 
         return sha1(implode('|', $parts));
@@ -90,7 +158,7 @@ final class Index
     }
 
     /**
-     * @return array{posts: array<int, array<string, mixed>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}
+     * @return array{posts: array<int, array<string, mixed>>, lookup: array<string, array<string, int>>, authors: array<string, mixed>, categories: array<string, mixed>, errors: array<int, array{file: string, message: string}>}
      */
     private function build(): array
     {
@@ -171,7 +239,12 @@ final class Index
 
         usort($posts, fn (array $a, array $b) => strcmp($b['date'], $a['date']) ?: strcmp($a['id'], $b['id']));
 
-        return ['posts' => $posts, 'authors' => $authors, 'categories' => $categories, 'errors' => $errors];
+        $lookup = [];
+        foreach ($posts as $position => $post) {
+            $lookup[$post['locale']][$post['slug']] = $position;
+        }
+
+        return ['posts' => $posts, 'lookup' => $lookup, 'authors' => $authors, 'categories' => $categories, 'errors' => $errors];
     }
 
     /**
